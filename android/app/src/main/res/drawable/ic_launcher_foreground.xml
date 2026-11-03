@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foglio con angolo piegato e spunta: il "cassetto" ordinato -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,28 L58,28 L74,44 L74,80 Q74,82 72,82 L36,82 Q34,82 34,80 Z" />
+    <path
+        android:fillColor="#B8CCF5"
+        android:pathData="M58,28 L74,44 L60,44 Q58,44 58,42 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#0B3D91"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M44,62 L51,69 L65,54" />
+</vector>

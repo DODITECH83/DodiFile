@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DodiFile</title>
+<meta name="description" content="Il tuo cassetto digitale intelligente: scansiona i documenti, trova le scadenze, ritrova tutto in un secondo. Dati solo sul tuo dispositivo.">
+<meta name="theme-color" content="#0B3D91">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header>
+  <h1>DodiFile</h1>
+  <button class="icon-btn" id="btnSettings" aria-label="Impostazioni">⚙️</button>
+</header>
+
+<main>
+  <button class="scan" id="btnScan">
+    <span class="big" aria-hidden="true">📷</span>
+    <b>Scansiona o carica</b>
+    <small>Bolletta, scontrino, garanzia, PDF…</small>
+  </button>
+
+  <div class="search">
+    <span class="lead" aria-hidden="true">🔎</span>
+    <label class="sr" for="q">Cerca nei documenti</label>
+    <input id="q" type="search" placeholder="Cerca: caldaia, bollo…" autocomplete="off" enterkeyhint="search">
+    <button class="clr" id="btnClear" aria-label="Cancella ricerca" hidden>✕</button>
+  </div>
+
+  <section id="summary"></section>
+  <div class="chips" id="chips" role="group" aria-label="Filtra per categoria"></div>
+  <ul class="list" id="list"></ul>
+  <div id="empty"></div>
+  <button class="devlink" id="btnDev">💻 DEV · Info sviluppatore</button>
+</main>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fileAny" accept="application/pdf,image/*" hidden>
+
+<dialog id="sheet" class="sheet" aria-label="Aggiungi documento">
+  <div class="pad">
+    <h2>Aggiungi un documento</h2>
+    <button class="action" id="optCam"><span class="e" aria-hidden="true">📷</span><span><b>Scatta una foto</b>Usa la fotocamera</span></button>
+    <button class="action" id="optFile"><span class="e" aria-hidden="true">📄</span><span><b>Carica PDF o foto</b>Scegli un file dal telefono</span></button>
+    <button class="btn" id="sheetClose">Annulla</button>
+  </div>
+</dialog>
+
+<dialog id="detail" aria-label="Documento"></dialog>
+<dialog id="settings" aria-label="Impostazioni"></dialog>
+<dialog id="busy" aria-live="polite"><div class="busy"><div class="spin"></div><b id="busyMsg">Sto leggendo il documento…</b><span class="hint">La prima volta può servire un minuto: scarico il motore di lettura, poi funziona anche offline.</span></div></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="logic.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
