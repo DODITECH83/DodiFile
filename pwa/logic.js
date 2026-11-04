@@ -1,14 +1,14 @@
 'use strict';
-/* DodiFile – logica pura (stessa dell'app Android): categorie, scadenze, ricerca. Nessuna dipendenza dal DOM. */
+/* DodiFile – logica pura (stessa dell'app Android): categorie, scadenze, importi, ricerca. Nessuna dipendenza dal DOM. */
 
 const CATS = {
-  casa:   { label: 'Casa',   icon: '🏠', kw: ['bolletta','luce','energia','gas','acqua','condominio','affitto','locazione','caldaia','elettricita','fornitura','pod','pdr','canone','internet','fibra','telefono','utenza'] },
-  auto:   { label: 'Auto',   icon: '🚗', kw: ['auto','targa','bollo','assicurazione','rca','revisione','tagliando','carburante','patente','veicolo','autoveicolo','pneumatici','officina','kasko'] },
-  salute: { label: 'Salute', icon: '🩺', kw: ['visita','medico','ricetta','farmaco','referto','analisi','ospedale','asl','clinica','terapia','prescrizione','tessera sanitaria','dentista','paziente','diagnosi'] },
-  tasse:  { label: 'Tasse',  icon: '🏛️', kw: ['tasse','imposta','irpef','imu','tari','isee','f24','agenzia delle entrate','730','dichiarazione','tributi','fisco','certificazione unica','contributi','inps'] },
-  spese:  { label: 'Spese',  icon: '🧾', kw: ['scontrino','ricevuta','fattura','garanzia','acquisto','totale','iva','pagamento','carta di credito','importo','negozio','ordine'] },
-  lavoro: { label: 'Lavoro', icon: '💼', kw: ['busta paga','contratto di lavoro','stipendio','cedolino','assunzione','tfr','curriculum','azienda','dipendente'] },
-  altro:  { label: 'Altro',  icon: '📁', kw: [] }
+  casa:   { label: 'Casa',   icon: 'home',      color: '#3B82F6', kw: ['bolletta','luce','energia','gas','acqua','condominio','affitto','locazione','caldaia','elettricita','fornitura','pod','pdr','canone','internet','fibra','telefono','utenza'] },
+  auto:   { label: 'Auto',   icon: 'car',       color: '#F59E0B', kw: ['auto','targa','bollo','assicurazione','rca','revisione','tagliando','carburante','patente','veicolo','autoveicolo','pneumatici','officina','kasko'] },
+  salute: { label: 'Salute', icon: 'heart',     color: '#EF4444', kw: ['visita','medico','ricetta','farmaco','referto','analisi','ospedale','asl','clinica','terapia','prescrizione','tessera sanitaria','dentista','paziente','diagnosi'] },
+  tasse:  { label: 'Tasse',  icon: 'landmark',  color: '#8B5CF6', kw: ['tasse','imposta','irpef','imu','tari','isee','f24','agenzia delle entrate','730','dichiarazione','tributi','fisco','certificazione unica','contributi','inps'] },
+  spese:  { label: 'Spese',  icon: 'receipt',   color: '#10B981', kw: ['scontrino','ricevuta','fattura','garanzia','acquisto','totale','iva','pagamento','carta di credito','importo','negozio','ordine'] },
+  lavoro: { label: 'Lavoro', icon: 'briefcase', color: '#0EA5E9', kw: ['busta paga','contratto di lavoro','stipendio','cedolino','assunzione','tfr','curriculum','azienda','dipendente'] },
+  altro:  { label: 'Altro',  icon: 'folder',    color: '#64748B', kw: [] }
 };
 
 const MONTHS = { gennaio:1, febbraio:2, marzo:3, aprile:4, maggio:5, giugno:6, luglio:7, agosto:8, settembre:9, ottobre:10, novembre:11, dicembre:12 };
@@ -89,11 +89,50 @@ function extractDue(raw, today = startOfToday()) {
   return null;
 }
 
+/** Data del documento: la prima data del testo che non sia nel futuro (es. data dello scontrino). */
+function extractDocDate(raw, today = startOfToday()) {
+  const limit = new Date(today.getTime() + 864e5);
+  const d = findDates(norm(raw)).sort((a, b) => a.index - b.index).map(x => x.date).find(x => x <= limit);
+  return d ? iso(d) : null;
+}
+
+/** Importo in euro ("totale 82,40", "da pagare € 1.234,56"). Restituisce un numero o null. */
+function extractAmount(raw) {
+  const t = norm(raw);
+  const re = /(?:totale(?: complessivo| da pagare| importo)?|importo(?: dovuto| totale)?|da pagare|netto a pagare|saldo)\D{0,25}?(\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}|\d+\.\d{2})(?!\d|[.\/]\d)/;
+  const m = re.exec(t);
+  return m ? parseAmount(m[1]) : null;
+}
+function parseAmount(s) {
+  s = String(s ?? '').replace(/[€\s]/g, '');
+  if (!s) return null;
+  const n = parseFloat(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s);
+  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+
 function analyze(text, today = startOfToday()) {
   const title = (text || '').split('\n').map(l => l.trim())
     .find(l => l.length >= 4 && l.length <= 60 && /\p{L}{4,}/u.test(l))
     || `Documento del ${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()}`;
-  return { title, cat: classify(text), due: extractDue(text, today) };
+  return { title, cat: classify(text), due: extractDue(text, today), amount: extractAmount(text), docDate: extractDocDate(text, today) };
+}
+
+/** Prossima scadenza di un documento ricorrente (sempre nel futuro). */
+function nextDue(isoDate, repeat, today = startOfToday()) {
+  const step = { monthly: 1, quarterly: 3, yearly: 12 }[repeat];
+  if (!step) return isoDate;
+  let d = parseIso(isoDate), i = 0;
+  do { i++; d = addMonths(parseIso(isoDate), step * i); } while (d < today && i < 600);
+  return iso(d);
+}
+
+/** Durata ICS "prima dell'inizio" per un promemoria di N giorni prima alle ore H (evento all-day = ore 00:00). */
+function icsTrigger(daysBefore, hour) {
+  const off = daysBefore * 1440 - hour * 60; // minuti prima della mezzanotte del giorno di scadenza
+  if (off === 0) return 'PT0S';
+  const abs = Math.abs(off), d = Math.floor(abs / 1440), h = Math.floor((abs % 1440) / 60), m = abs % 60;
+  const time = (h ? h + 'H' : '') + (m ? m + 'M' : '');
+  return (off > 0 ? '-' : '') + 'P' + (d ? d + 'D' : '') + (time ? 'T' + time : '');
 }
 
 /* ---------- Ricerca semantica semplificata ---------- */
@@ -130,7 +169,7 @@ function withinOne(a, b) {
 }
 
 function scoreDoc(doc, tokens) {
-  const title = norm(doc.title), hay = doc.search;
+  const title = norm(doc.title), hay = doc.search || '';
   let words = null, total = 0;
   for (const tok of tokens) {
     let s = 0;
@@ -153,6 +192,7 @@ function rank(docs, query) {
   return docs.map(d => [d, scoreDoc(d, tokens)]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).map(x => x[0]);
 }
 
+/* ---------- Testi e formati ---------- */
 function dayText(dl) {
   if (dl === -1) return 'Scaduto ieri';
   if (dl < 0) return `Scaduto da ${-dl} giorni`;
@@ -161,5 +201,10 @@ function dayText(dl) {
   return `Scade tra ${dl} giorni`;
 }
 const urgency = dl => dl == null ? 'none' : dl < 0 ? 'over' : dl <= 7 ? 'soon' : 'later';
+const bucket = dl => dl < 0 ? 'over' : dl <= 7 ? 'week' : dl <= 31 ? 'month' : 'later';
+const greeting = (h = new Date().getHours()) => h < 5 ? 'Buonanotte' : h < 13 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera';
+const fmtEuro = n => new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' }).format(n);
+const fmtDate = s => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }).format(parseIso(s));
+const fmtBytes = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
 
-if (typeof module !== 'undefined') module.exports = { CATS, norm, iso, parseIso, daysLeft, classify, extractDue, analyze, rank, withinOne, dayText, urgency };
+if (typeof module !== 'undefined') module.exports = { CATS, norm, iso, parseIso, daysLeft, classify, extractDue, extractDocDate, extractAmount, parseAmount, analyze, nextDue, icsTrigger, rank, withinOne, dayText, urgency, bucket, greeting, fmtEuro, fmtBytes };

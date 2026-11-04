@@ -35,6 +35,17 @@ Il repository contiene due versioni con le stesse funzioni:
 7. **Scala del testo indipendente** dal sistema, per chi non sa dove trovare le impostazioni di Android.
 8. **Esporta le scadenze nel calendario** (versione web) per avvisi garantiti anche ad app chiusa.
 
+## 🆕 Versione 2 della PWA (novità)
+
+- **Nuovo design**: navigazione a schede (Cassetto · Scadenze · Riepilogo · Impostazioni) con grande tasto di scansione al centro, icone vettoriali, tema chiaro/scuro e 5 colori a scelta.
+- **Blocco app**: PIN (4 o 6 cifre, salvato come hash PBKDF2) + **impronta / volto / blocco schermo** (WebAuthn), blocco automatico configurabile, protezione contro i tentativi ripetuti.
+- **Scadenze**: elenco per urgenza, "Segna come fatto", **ricorrenze** (mensile, trimestrale, annuale) con storico, promemoria personalizzabili (giorni e ora).
+- **Riepilogo spese**: importi letti dai documenti, totale del mese, grafico per categoria e degli ultimi 6 mesi, "da pagare nei prossimi 30 giorni".
+- **Impostazioni**: nome, tema, colore, dimensione testo (4 livelli), contrasto alto, elenco compatto, animazioni ridotte, modalità privacy, lingua OCR, backup/ripristino, spazio usato, archivio protetto, installazione app.
+- **Altro**: preferiti, ordinamento, ricerche recenti, lettura ad alta voce, promemoria senza documento, presentazione iniziale, tasto "indietro" del telefono che chiude le finestre.
+
+> Il blocco protegge l'accesso all'app; i documenti restano nel browser del dispositivo e **non sono cifrati**. Il PIN dimenticato non è recuperabile: l'unica via è cancellare i dati (per questo esiste il backup).
+
 ---
 
 ## 🧱 Architettura Android (MVVM)
