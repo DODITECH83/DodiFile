@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "it.doditech.dodifile",
+    "sha256_cert_fingerprints": ["INSERISCI:LA:IMPRONTA:SHA-256:DELLA:CHIAVE:DI:FIRMA:DI:PLAY:CONSOLE"]
+  }
+}]

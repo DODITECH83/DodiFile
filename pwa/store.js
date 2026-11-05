@@ -30,7 +30,7 @@ const DEFAULTS = {
   name: '', scale: 1, theme: 'auto', accent: 'ocean', contrast: false, calm: false, density: 'comfy',
   lockOn: false, bioOn: false, lockTimeout: 30, privacy: false,
   remDays: [7, 1, 0], remHour: 9, notifyOpen: true,
-  ocrLang: 'ita', ocrEnhance: true, autoDue: true,
+  ocrLang: 'ita', ocrEnhance: true, autoDue: true, cropAsk: true, haptics: true, engineReady: '',
   sort: 'recent', backupNag: true, lastBackup: 0, onboarded: false
 };
 const prefs = {

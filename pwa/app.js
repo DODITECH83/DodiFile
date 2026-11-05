@@ -2,10 +2,10 @@
 /* DodiFile PWA v2 – interfaccia. Archivio locale, OCR locale (Tesseract.js), PDF (pdf.js). Nessun server. */
 
 const DEV = { name: 'Adry Doditech', github: 'https://github.com/DODITECH83/DodiFile' };
-const TESS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
-const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
+/* Motore di lettura incluso nell'app (cartella vendor/): funziona senza internet. */
+const ENGINE = { tess: 'vendor/tesseract/tesseract.min.js', worker: 'vendor/tesseract/worker.min.js', core: 'vendor/tesseract', lang: 'vendor/tesseract/lang', pdf: 'vendor/pdfjs/pdf.min.js', pdfWorker: 'vendor/pdfjs/pdf.worker.min.js' };
+const abs = p => new URL(p, location.href).href;
 
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -26,7 +26,9 @@ function toast(msg, action) {
 
 /* Le finestre si chiudono anche col tasto "indietro" del telefono */
 const dlgStack = []; let popping = false, ignorePop = 0;
-function openDlg(d) { if (d.open) return; d.showModal(); dlgStack.push(d); history.pushState({ dlg: d.id }, ''); }
+function openDlg(d) { if (d.open) return; d.showModal(); document.activeElement?.blur?.(); dlgStack.push(d); history.pushState({ dlg: d.id }, ''); }
+const buzz = (ms = 12) => { if (prefs.get('haptics')) navigator.vibrate?.(ms); };
+window.addEventListener('scroll', () => document.querySelector('.top').classList.toggle('scrolled', scrollY > 8), { passive: true });
 function closeDlg(d) { if (d.open) d.close(); }
 document.addEventListener('close', e => {
   const i = dlgStack.indexOf(e.target); if (i < 0) return;
@@ -71,6 +73,12 @@ function askPin({ title, sub, len, validate }) {
   });
 }
 
+const emptyArt = () => `<svg viewBox="0 0 120 120" width="132" height="132" aria-hidden="true"><defs><linearGradient id="eg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--g1)"/><stop offset="1" stop-color="var(--g2)"/></linearGradient></defs>
+  <rect x="30" y="16" width="60" height="42" rx="9" fill="var(--surface)" stroke="var(--line)" stroke-width="2" transform="rotate(-6 60 37)"/>
+  <rect x="30" y="20" width="60" height="42" rx="9" fill="var(--surface)" stroke="var(--line)" stroke-width="2" transform="rotate(4 60 41)"/>
+  <path d="M42 34h28M42 43h16" stroke="var(--a)" stroke-width="4" stroke-linecap="round" transform="rotate(4 60 41)"/>
+  <rect x="12" y="46" width="96" height="62" rx="16" fill="url(#eg)"/><rect x="42" y="68" width="36" height="9" rx="4.5" fill="#fff" opacity=".9"/>
+  <path d="M104 22l2.2 5.4 5.4 2.2-5.4 2.2-2.2 5.4-2.2-5.4-5.4-2.2 5.4-2.2z" fill="var(--a)"/><circle cx="14" cy="30" r="3.5" fill="var(--a)" opacity=".6"/></svg>`;
 const urgChip = (dl, done) => {
   if (done) return `<span class="due ok">${ic('checkc')} Completato</span>`;
   if (dl == null) return '';
@@ -92,6 +100,7 @@ const byDue = (a, b) => a.due.localeCompare(b.due);
 const activeDue = () => docs.filter(d => d.due && !d.done);
 
 function renderAll() {
+  document.body.classList.toggle('has-docs', docs.length > 0);
   const n = activeDue().filter(d => daysLeft(d.due) <= 7).length;
   const badge = $('#dueBadge'); badge.hidden = !n; badge.textContent = n;
   $('#btnLockNow').hidden = !Lock.enabled();
@@ -99,6 +108,7 @@ function renderAll() {
 }
 
 function goTab(tab) {
+  if (tab !== ui.tab) buzz(8);
   ui.tab = tab;
   $$('.view').forEach(v => v.hidden = v.dataset.view !== tab);
   $$('.tab').forEach(b => b.setAttribute('aria-current', b.dataset.tab === tab ? 'page' : 'false'));
@@ -107,10 +117,10 @@ function goTab(tab) {
 $$('.tab').forEach(b => b.onclick = () => goTab(b.dataset.tab));
 
 /* =====================  Cassetto (home)  ===================== */
-function cardHtml(d) {
+function cardHtml(d, i = 0) {
   const c = CATS[d.cat] || CATS.altro, dl = d.due && !d.done ? daysLeft(d.due) : null;
   const meta = [c.label, d.docDate ? fmtDate(d.docDate) : null, d.amount != null ? fmtEuro(d.amount) : null].filter(Boolean).join(' · ');
-  return `<li><button class="card" data-open="${d.id}">
+  return `<li style="--i:${Math.min(i, 8)}"><button class="card" data-open="${d.id}">
     <span class="cat" style="--c:${c.color}">${d.thumb ? `<img class="blur" src="${d.thumb}" alt="">` : ic(c.icon)}</span>
     <span class="txt"><b class="blur">${esc(d.title)}</b><small class="blur">${esc(meta)}</small>${urgChip(dl, d.done && d.due)}</span>
     ${d.fav ? ic('star', 'fav') : ''}</button></li>`;
@@ -142,11 +152,12 @@ function renderHome() {
   <div class="chips" id="chips" role="group" aria-label="Filtra per categoria"></div>
   <div id="listwrap"></div>
   <button class="devlink" data-act="goDev">${ic('code')} DEV · Info sviluppatore</button>`;
-  renderList();
+  ui.anim = true; renderList();
 }
 
 function renderList() {
   const total = docs.length; if (ui.tab !== 'home') return;
+  const anim = ui.anim; ui.anim = false;
   $('#btnClear').hidden = !ui.query;
   $('#recent').innerHTML = !ui.query && ui.recent.length && total ? `<div class="recent">Recenti: ${ui.recent.map(r => `<button class="chip" data-recent="${esc(r)}">${esc(r)}</button>`).join('')}</div>` : '';
   const count = k => docs.filter(d => d.cat === k).length;
@@ -165,13 +176,13 @@ function renderList() {
   }[sort] || ((a, b) => b.created - a.created));
 
   const filtering = ui.query.trim() || ui.cat;
-  $('#listwrap').innerHTML = !shown.length ? `<div class="empty"><div class="art">${ic(filtering ? 'search' : 'archive')}</div>
+  $('#listwrap').innerHTML = !shown.length ? `<div class="empty">${filtering ? `<div class="art">${ic('search')}</div>` : `<div class="art free">${emptyArt()}</div>`}
       <h2>${filtering ? 'Nessun documento trovato' : 'Il tuo cassetto è vuoto'}</h2>
       <p>${filtering ? 'Prova con un’altra parola o togli il filtro.' : 'Fotografa una bolletta, uno scontrino o una garanzia: leggo io date e importi e ti avviso prima della scadenza.'}</p>
       ${filtering ? '' : `<button class="btn fill" data-act="add">${ic('plus')} Aggiungi il primo documento</button>`}</div>`
     : `<div class="listhead"><h3>${ui.query ? 'Risultati' : 'I tuoi documenti'} <span class="hint">(${shown.length})</span></h3>
         ${ui.query ? '' : `<label class="sortsel">${ic('sort')}<select id="sortSel" aria-label="Ordina per">${[['recent', 'Più recenti'], ['due', 'Scadenza'], ['name', 'Nome A–Z'], ['cat', 'Categoria']].map(([v, l]) => `<option value="${v}" ${sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`}</div>
-      <ul class="list" style="margin-top:.6rem">${shown.map(cardHtml).join('')}</ul>`;
+      <ul class="list ${anim ? 'stagger' : ''}" style="margin-top:.6rem">${shown.map((d, i) => cardHtml(d, i)).join('')}</ul>`;
 }
 
 function rememberSearch() {
@@ -207,6 +218,7 @@ function renderDue() {
 
 async function toggleDone(id) {
   const d = docs.find(x => x.id === id); if (!d) return;
+  buzz(20);
   const prev = structuredClone({ ...d, blob: undefined }); prev.blob = d.blob;
   if (d.done) { d.done = false; await dbPut(d); await reload(); return; }
   if (d.repeat !== 'none' && d.due) {
@@ -267,7 +279,7 @@ function openSheet() {
   };
   openDlg(s);
 }
-$('#btnScan').onclick = openSheet;
+$('#btnScan').onclick = () => { buzz(15); openSheet(); };
 for (const id of ['#fileCam', '#fileAny']) $(id).addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; Lock.pause(30000); if (f) importFile(f); });
 
 const loaded = {};
@@ -287,16 +299,27 @@ async function shrink(blob, max = 1800, enhance = false) {
     return await new Promise(r => c.toBlob(r, 'image/jpeg', .85));
   } catch { return blob; }
 }
-const setBusy = (msg, pct) => { $('#busyMsg').textContent = msg; $('#busyHint').innerHTML = pct != null ? `<div class="progress"><i style="width:${pct}%"></i></div>` : ''; };
+const setBusy = (msg, pct) => { $('#busyMsg').textContent = msg; $('#busyHint').innerHTML = pct != null ? `<div class="progress"><i style="width:${pct}%"></i></div>` : '<div class="progress ind"><i></i></div>'; };
 
-async function ocrBlob(blob) {
-  await loadScript(TESS);
-  const w = await Tesseract.createWorker(prefs.get('ocrLang'), 1, { logger: m => { if (m.status === 'recognizing text') setBusy('Leggo il testo…', Math.round(m.progress * 100)); else if (m.status?.includes('loading')) setBusy('Preparo il motore di lettura…', null); } });
-  try { return (await w.recognize(blob)).data.text || ''; } finally { await w.terminate(); }
+async function newWorker() {
+  await loadScript(ENGINE.tess);
+  return Tesseract.createWorker(prefs.get('ocrLang'), 1, {
+    workerPath: abs(ENGINE.worker), corePath: abs(ENGINE.core), langPath: abs(ENGINE.lang), gzip: true, workerBlobURL: false, cacheMethod: 'none',
+    logger: m => { if (m.status === 'recognizing text') setBusy('Leggo il testo…', Math.round(m.progress * 100)); else if (m.status?.includes('loading') || m.status === 'initializing tesseract') setBusy('Preparo la lettura…', null); }
+  });
+}
+/** Legge una o più versioni della stessa foto e tiene quella che il motore considera più affidabile. */
+async function ocrBest(blobs) {
+  const w = await newWorker();
+  try {
+    let best = { text: '', conf: -1 };
+    for (const b of blobs) { const { data } = await w.recognize(b); if (data.confidence > best.conf) best = { text: data.text || '', conf: data.confidence }; if (best.conf >= 72) break; }
+    return best;
+  } finally { await w.terminate(); }
 }
 async function pdfText(file) {
-  await loadScript(PDFJS);
-  pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+  await loadScript(ENGINE.pdf);
+  pdfjsLib.GlobalWorkerOptions.workerSrc = abs(ENGINE.pdfWorker);
   const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
   let out = '';
   for (let i = 1; i <= Math.min(pdf.numPages, 5); i++) {
@@ -306,26 +329,39 @@ async function pdfText(file) {
     if (t.replace(/\s/g, '').length < 30) {
       const vp = page.getViewport({ scale: 2 }), c = document.createElement('canvas'); c.width = vp.width; c.height = vp.height;
       await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
-      t = await ocrBlob(await new Promise(r => c.toBlob(r, 'image/png')));
+      t = (await ocrBest([await new Promise(r => c.toBlob(r, 'image/png'))])).text;
     }
     out += t + '\n';
   }
   return out;
 }
 
+/** Scarica in anticipo il motore di lettura, così funziona anche senza internet. */
+async function prepareOffline() {
+  if (prefs.get('engineReady') === VERSION || !location.protocol.startsWith('http') || !navigator.onLine) return;
+  try {
+    await navigator.serviceWorker?.ready;
+    const files = [ENGINE.tess, ENGINE.worker, `${ENGINE.core}/tesseract-core-lstm.wasm.js`, `${ENGINE.core}/tesseract-core-simd-lstm.wasm.js`, `${ENGINE.lang}/ita.traineddata.gz`, `${ENGINE.lang}/eng.traineddata.gz`, ENGINE.pdf, ENGINE.pdfWorker];
+    for (const f of files) { const r = await fetch(f); if (!r.ok) throw new Error(f); await r.arrayBuffer(); }
+    prefs.set('engineReady', VERSION); if (ui.tab === 'settings') renderSettings();
+  } catch (e) { console.warn('Preparazione offline non completata', e); }
+}
+
 async function importFile(file) {
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  let src = file;
+  if (!isPdf && prefs.get('cropAsk')) { src = await cropEditor(file); if (!src) return; Lock.pause(30000); }
   setBusy('Sto leggendo il documento…', null); $('#busy').showModal();
   requestPersist();
   try {
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
-    const blob = isPdf ? file : await shrink(file);
+    const blob = isPdf ? file : await shrink(src);
     let text = '';
     try {
-      text = isPdf ? await pdfText(file) : await ocrBlob(prefs.get('ocrEnhance') ? await shrink(file, 2000, true) : blob);
-    } catch (err) { console.warn(err); toast('Lettura automatica non disponibile (serve internet la prima volta). Salvato: controlla tu i dati.'); }
+      text = isPdf ? await pdfText(file) : (await ocrBest(prefs.get('ocrEnhance') ? [await shrink(src, 2000, true), await shrink(src, 2000, false)] : [await shrink(src, 2000, false)])).text;
+    } catch (err) { console.warn(err); toast('Non sono riuscito a leggere il testo. Salvato lo stesso: controlla tu i dati.'); }
     const a = analyze(text);
     const rec = normDoc({
-      title: a.title, cat: a.cat, due: prefs.get('autoDue') ? a.due?.date || null : null, dueLabel: prefs.get('autoDue') ? a.due?.label || null : null,
+      title: a.title, alts: a.alts, cat: a.cat, due: prefs.get('autoDue') ? a.due?.date || null : null, dueLabel: prefs.get('autoDue') ? a.due?.label || null : null,
       amount: a.amount, docDate: a.docDate, text, note: '', created: Date.now(), mime: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg'), blob, thumb: null
     });
     rec.search = buildSearch(rec);
@@ -349,6 +385,7 @@ async function openDetail(id, fresh = false) {
     ${url || fresh ? `<div class="preview">${url && d.mime?.startsWith('image/') ? `<img src="${url}" alt="Anteprima del documento">` : `<div class="noimg">${ic(url ? 'file' : 'bell')}</div>`}</div>` : ''}
     ${fresh && d.blob ? '<p class="hint">Ho letto il documento. Controlla che titolo, categoria, scadenza e importo siano giusti, poi salva.</p>' : ''}
     <label class="f">Titolo<input id="dTitle" value="${esc(d.title)}"></label>
+    ${fresh && d.alts?.length ? `<div><span class="hint">Altri titoli possibili:</span><div class="chips" id="dAlts" style="flex-wrap:wrap;margin-top:.35rem">${d.alts.map(t => `<button class="chip" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>` : ''}
     <div><b style="font-size:.95rem">Categoria</b><div class="chips" id="dCats" style="flex-wrap:wrap;margin-top:.45rem">${Object.entries(CATS).map(([k, c]) => `<button class="chip" data-k="${k}" aria-pressed="${d.cat === k}">${ic(c.icon)} ${c.label}</button>`).join('')}</div></div>
     <div class="box"><h3>Scadenza e promemoria</h3><div id="dInfo"></div>
       <div class="cols2"><label class="f">Data<input id="dDue" type="date" value="${d.due || ''}"></label><label class="f">Tipo<input id="dLabel" value="${esc(d.dueLabel || 'Scadenza')}"></label></div>
@@ -368,6 +405,7 @@ async function openDetail(id, fresh = false) {
   const info = () => { q('#dInfo').innerHTML = draft.due ? urgChip(daysLeft(draft.due), draft.done) : '<span class="hint">Nessuna scadenza. Se il documento ne ha una, impostala qui sotto.</span>'; };
   info();
   q('#dBack').onclick = () => closeDlg(dlg);
+  if (q('#dAlts')) q('#dAlts').onclick = e => { const b = e.target.closest('[data-t]'); if (b) q('#dTitle').value = b.dataset.t; };
   q('#dFav').onclick = e => { draft.fav = !draft.fav; e.currentTarget.innerHTML = ic('star', draft.fav ? 'fav' : ''); e.currentTarget.setAttribute('aria-pressed', draft.fav); };
   q('#dCats').onclick = e => { const b = e.target.closest('[data-k]'); if (!b) return; draft.cat = b.dataset.k; dlg.querySelectorAll('#dCats .chip').forEach(x => x.setAttribute('aria-pressed', x === b)); };
   q('#dDue').onchange = e => { draft.due = e.target.value || null; info(); };
@@ -454,6 +492,7 @@ async function renderSettings() {
     <div class="srow-col">${srow('type', 'Dimensione del testo', 'Più grande = più facile da leggere')}${seg('scale', [[1, 'Normale'], [1.15, 'Grande'], [1.3, 'Molto'], [1.5, 'Enorme']], p.scale)}<div class="preview-text">Ecco come si legge il testo: <b>Bolletta del gas</b>, scade tra 5 giorni.</div></div>
     ${srow('contrast', 'Contrasto alto', 'Bordi e testi più marcati', sw('contrast', p.contrast))}
     ${srow('list', 'Elenco compatto', 'Mostra più documenti nello schermo', sw('density', p.density === 'compact'))}
+    ${srow('wind', 'Vibrazione leggera', 'Un piccolo tocco quando premi i pulsanti', sw('haptics', p.haptics))}
     ${srow('wind', 'Riduci le animazioni', 'Movimenti più calmi', sw('calm', p.calm))}
   </div>
 
@@ -478,6 +517,8 @@ async function renderSettings() {
   <div class="ghead">Lettura dei documenti</div>
   <div class="group">
     <div class="srow-col">${srow('globe', 'Lingua dei documenti', 'Per leggere meglio il testo')}${seg('ocrLang', [['ita', 'Italiano'], ['eng', 'English'], ['ita+eng', 'Entrambe']], p.ocrLang)}</div>
+    ${srow('scan', 'Ritaglia le foto prima di leggerle', 'Ruota e inquadra il foglio: lettura più precisa', sw('cropAsk', p.cropAsk))}
+    ${srow('shield', 'Motore di lettura', p.engineReady ? 'Pronto: funziona anche senza internet' : 'In preparazione… serve internet una volta sola')}
     ${srow('sparkles', 'Migliora le foto prima della lettura', 'Più contrasto: legge meglio le foto scure', sw('ocrEnhance', p.ocrEnhance))}
     ${srow('calendar', 'Trova le scadenze da solo', 'Imposta la data se la riconosce nel testo', sw('autoDue', p.autoDue))}
   </div>
@@ -496,6 +537,7 @@ async function renderSettings() {
   <div class="group">
     ${!standalone && deferredInstall ? brow('install', 'Installa DodiFile', 'Aggiungila alla schermata Home', 'install') : ''}
     ${brow('sparkles', 'Come si usa', 'Rivedi la presentazione', 'tour')}
+    ${brow('lock', 'Informativa sulla privacy', 'Nessun dato lascia il tuo telefono', 'privacy')}
     ${srow('info', 'Versione', `DodiFile ${VERSION} · ${standalone ? 'installata' : 'nel browser'}`)}
   </div>
 
@@ -568,7 +610,7 @@ $('#view-settings').addEventListener('click', async e => {
   const mu = t.closest('[data-multi]');
   if (mu) { const v = +mu.dataset.multi, cur = prefs.get('remDays'); const next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v]; if (!next.length) return toast('Tieni almeno un avviso attivo.'); prefs.set('remDays', next); return renderSettings(); }
   const a = t.closest('[data-act]'); if (!a) return;
-  ({ changePin, backup: doBackup, wipe: wipeAll, icsAll: () => icsAll(), restore: () => { Lock.pause(); $('#fileRestore').click(); }, tour: () => openOnboarding(true),
+  ({ changePin, backup: doBackup, wipe: wipeAll, icsAll: () => icsAll(), restore: () => { Lock.pause(); $('#fileRestore').click(); }, tour: () => openOnboarding(true), privacy: () => window.open('privacy.html', '_blank', 'noopener'),
      install: async () => { deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; renderSettings(); } })[a.dataset.act]?.();
 });
 $('#view-settings').addEventListener('change', async e => {
@@ -642,6 +684,7 @@ function openOnboarding(again = false) {
   if (Lock.enabled()) Lock.show(); else document.documentElement.classList.remove('locked');
   await reload();
   notifyDue();
+  setTimeout(prepareOffline, 3000);
   if (!prefs.get('onboarded') && !Lock.locked) openOnboarding();
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { renderAll(); notifyDue(); } });
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});

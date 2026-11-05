@@ -229,3 +229,24 @@ details { border-radius: 1rem; background: var(--surface-2); padding: .7rem .9re
 .slide .art { width: 8rem; height: 8rem; border-radius: 2.4rem; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--g1), var(--g2)); box-shadow: var(--shadow-lg); } .slide .art .i { width: 4rem; height: 4rem; }
 .slide h2 { font-size: 1.7rem; letter-spacing: -.02em; } .slide p { color: var(--muted); max-width: 22rem; font-size: 1.05rem; }
 .dotsnav { display: flex; gap: .5rem; justify-content: center; } .dotsnav i { width: .6rem; height: .6rem; border-radius: 1rem; background: var(--line); transition: width .2s; } .dotsnav i.on { width: 1.6rem; background: var(--a); }
+
+.cropwrap { display: grid; place-items: center; background: #0B0F17; border-radius: 1.2rem; padding: .5rem; touch-action: none; user-select: none; } .cropwrap canvas { border-radius: .6rem; max-width: 100%; }
+
+/* ===== Rifiniture ===== */
+.top.scrolled { box-shadow: 0 1px 0 var(--line), 0 8px 20px -14px rgba(15,23,42,.4); }
+ul.list.stagger > li { animation: rise .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 45ms); }
+.amt, .big, .kpi b, .bar-row b, .hero-stats b { font-variant-numeric: tabular-nums; }
+.hero::before { content: ""; position: absolute; width: 8rem; height: 8rem; left: -3rem; top: -3.5rem; border-radius: 50%; background: rgba(255,255,255,.08); }
+.empty .art.free { background: none; width: auto; height: auto; border-radius: 0; filter: drop-shadow(0 14px 18px color-mix(in srgb, var(--g1) 35%, transparent)); animation: float 4s ease-in-out infinite; }
+@keyframes float { 50% { transform: translateY(-6px); } }
+.fab::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--g1) 45%, transparent); opacity: 0; }
+body:not(.has-docs) .fab::after { animation: ring 2.4s ease-out infinite; }
+@keyframes ring { 0% { transform: scale(.9); opacity: .8; } 100% { transform: scale(1.35); opacity: 0; } }
+.fab { position: relative; }
+.progress.ind i { width: 38%; animation: slide 1.2s ease-in-out infinite; } @keyframes slide { 0% { margin-left: -38%; } 100% { margin-left: 100%; } }
+.dueitem .check { transition: transform .15s, color .15s; } .dueitem .check:active { transform: scale(.8); } .dueitem.isdone .check .i { animation: pop .35s cubic-bezier(.3,1.6,.5,1); } @keyframes pop { 0% { transform: scale(.4); } 100% { transform: scale(1); } }
+.slide { animation: rise .4s cubic-bezier(.2,.8,.2,1) both; }
+.chip, .btn, .tab, .card { transition: background .15s, border-color .15s, color .15s, transform .12s, box-shadow .15s; }
+.chip:active { transform: scale(.95); }
+dialog.full { animation: sheetup .3s cubic-bezier(.2,.9,.3,1); }
+dialog.alert { animation: pop .25s cubic-bezier(.3,1.4,.5,1); }

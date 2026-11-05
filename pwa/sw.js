@@ -1,6 +1,6 @@
 'use strict';
-const CACHE = 'dodifile-v2';
-const SHELL = ['./', './index.html', './styles.css', './logic.js', './store.js', './lock.js', './app.js', './manifest.webmanifest',
+const CACHE = 'dodifile-v4';
+const SHELL = ['./', './index.html', './styles.css', './logic.js', './store.js', './lock.js', './crop.js', './privacy.html', './app.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {

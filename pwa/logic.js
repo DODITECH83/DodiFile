@@ -110,11 +110,86 @@ function parseAmount(s) {
   return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
 }
 
+/* ---------- Titoli intelligenti: "Bolletta luce · Enel · nov 2026" ---------- */
+const ISSUERS = [['enel energia','Enel Energia'],['enel','Enel'],['eni plenitude','Eni Plenitude'],['plenitude','Plenitude'],['eni','Eni'],['a2a','A2A'],['edison','Edison'],['iren','Iren'],['hera','Hera'],['acea','Acea'],['sorgenia','Sorgenia'],['e.on','E.ON'],['illumia','Illumia'],['tim','TIM'],['vodafone','Vodafone'],['windtre','WindTre'],['wind tre','WindTre'],['iliad','Iliad'],['fastweb','Fastweb'],['poste italiane','Poste Italiane'],['unicredit','UniCredit'],['intesa sanpaolo','Intesa Sanpaolo'],['esselunga','Esselunga'],['coop','Coop'],['conad','Conad'],['carrefour','Carrefour'],['lidl','Lidl'],['eurospin','Eurospin'],['ikea','IKEA'],['mediaworld','MediaWorld'],['unieuro','Unieuro'],['amazon','Amazon'],['leroy merlin','Leroy Merlin'],['decathlon','Decathlon'],['generali','Generali'],['unipolsai','UnipolSai'],['unipol','UnipolSai'],['allianz','Allianz'],['axa','AXA'],['reale mutua','Reale Mutua'],['agenzia delle entrate','Agenzia delle Entrate'],['inps','INPS'],['farmacia','Farmacia'],['trenitalia','Trenitalia'],['italo','Italo'],['telepass','Telepass'],['netflix','Netflix'],['spotify','Spotify'],['sky','Sky'],['dazn','DAZN']]
+  .map(([k, name]) => ({ name, len: k.length, re: new RegExp('(?<![a-z0-9])' + k.replace(/\./g, '\\.') + '(?![a-z0-9])') }));
+
+const TYPES_A = [
+  [/bollo auto|tassa automobilistica|tassa di proprieta (del )?(veicol|auto)/, 'Bollo auto'],
+  [/revisione (veicol|auto)|revisione periodica/, 'Revisione auto'],
+  [/polizza|certificato di assicurazione|assicurazione (auto|rca|casa|vita)|\brca\b/, 'Assicurazione'],
+  [/modello f24|\bf24\b/, 'F24'], [/\bimu\b/, 'IMU'], [/\btari\b|tassa rifiuti/, 'TARI'], [/\bisee\b/, 'ISEE'],
+  [/modello 730|dichiarazione dei redditi/, 'Modello 730'], [/certificazione unica/, 'Certificazione Unica'],
+  [/contratto di (locazione|affitto)|canone di locazione/, 'Contratto d’affitto'],
+  [/busta paga|cedolino|prospetto paga/, 'Busta paga'],
+  [/ricetta (medica|dematerializzata)/, 'Ricetta medica'], [/referto/, 'Referto'],
+  [/visita (medica|specialistica)/, 'Visita medica'], [/analisi del sangue|esami del sangue/, 'Analisi mediche']
+];
+const TYPES_B = [
+  [/scontrino|documento commerciale/, 'Scontrino'],
+  [/certificato di garanzia|garanzia (legale|convenzionale)|garanzia \d+ (mesi|anni)/, 'Garanzia'],
+  [/spese condominiali|condominio/, 'Spese condominiali'],
+  [/bollettino/, 'Bollettino'], [/fattura/, 'Fattura'], [/ricevuta/, 'Ricevuta'], [/contratto/, 'Contratto']
+];
+const UTILITIES = [
+  ['Bolletta luce', /energia elettrica|\bkwh\b|\bpod\b|\bluce\b|potenza impegnata/g],
+  ['Bolletta gas', /metano|\bsmc\b|\bpdr\b|gas naturale|\bgas\b/g],
+  ['Bolletta acqua', /servizio idrico|idric[oa]|\bacqua\b|\bmc\b/g],
+  ['Bolletta internet', /fibra|\badsl\b|internet|linea fissa|linea telefonica/g]
+];
+function docType(t) {
+  for (const [re, name] of TYPES_A) if (re.test(t)) return name;
+  const bill = /bolletta|fornitura|utenza|fattura/.test(t), strong = /bolletta/.test(t);
+  if (bill) {
+    const scores = UTILITIES.map(([name, re]) => [name, (t.match(re) || []).length]).sort((a, b) => b[1] - a[1]);
+    if (scores[0][1] >= 2 || (strong && scores[0][1] >= 1)) return scores[0][0];
+    if (strong) return 'Bolletta';
+  }
+  for (const [re, name] of TYPES_B) if (re.test(t)) return name;
+  return null;
+}
+const titleCase = s => s.split(' ').filter(Boolean).map(w => w.length > 3 && w === w.toUpperCase() ? w[0] + w.slice(1).toLowerCase() : w).join(' ');
+function findIssuer(t, raw) {
+  let best = null;
+  for (const i of ISSUERS) { const m = i.re.exec(t); if (m && (!best || m.index < best.index || (m.index === best.index && i.len > best.len))) best = { name: i.name, index: m.index, len: i.len }; }
+  if (best) return best.name;
+  for (const line of (raw || '').split('\n').slice(0, 12)) { // "Rossi Mario S.r.l." → "Rossi Mario"
+    const m = /^\W*([A-Za-zÀ-ÿ&' ]{3,40}?)\s+(?:s\.?\s?p\.?\s?a\.?|s\.?\s?r\.?\s?l\.?|s\.?\s?n\.?\s?c\.?|s\.?\s?a\.?\s?s\.?)(?:\W|$)/i.exec(line.trim());
+    if (m && m[1].trim().split(' ').length <= 4) return titleCase(m[1].trim());
+  }
+  return null;
+}
+const MON = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+function smartTitle(raw, ctx = {}) {
+  const t = norm(raw), type = docType(t), issuer = findIssuer(t, raw);
+  if (!type && !issuer) return null;
+  if (!type) return `Documento ${issuer}`;
+  const parts = [type];
+  if (issuer && !norm(type).includes(norm(issuer))) parts.push(issuer);
+  const d = ctx.docDate || ctx.due;
+  if (d && /^(Bolletta|Fattura)/.test(type)) { const [y, m] = d.split('-').map(Number); parts.push(`${MON[m - 1]} ${y}`); }
+  else if (type === 'Scontrino' && ctx.docDate) { const [, m, dd] = ctx.docDate.split('-').map(Number); parts.push(`${dd} ${MON[m - 1]}`); }
+  return parts.join(' · ');
+}
+/** Righe del testo che potrebbero essere un buon titolo (pulite, non troppo corte/lunghe, non numeriche). */
+function titleCandidates(raw, max = 3) {
+  const out = [];
+  for (let l of (raw || '').split('\n')) {
+    l = l.replace(/[^\p{L}\p{N} .,&'’\-]/gu, ' ').replace(/\s+/g, ' ').trim();
+    const letters = (l.match(/\p{L}/gu) || []).length;
+    if (l.length < 5 || l.length > 42 || letters / l.length < 0.7 || !/\p{L}{4,}/u.test(l)) continue;
+    const c = titleCase(l); if (!out.includes(c)) out.push(c);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 function analyze(text, today = startOfToday()) {
-  const title = (text || '').split('\n').map(l => l.trim())
-    .find(l => l.length >= 4 && l.length <= 60 && /\p{L}{4,}/u.test(l))
+  const due = extractDue(text, today), docDate = extractDocDate(text, today);
+  const alts = titleCandidates(text);
+  const title = smartTitle(text, { docDate, due: due?.date }) || alts[0]
     || `Documento del ${pad(today.getDate())}/${pad(today.getMonth() + 1)}/${today.getFullYear()}`;
-  return { title, cat: classify(text), due: extractDue(text, today), amount: extractAmount(text), docDate: extractDocDate(text, today) };
+  return { title, alts: alts.filter(a => a !== title), cat: classify(text), due, amount: extractAmount(text), docDate };
 }
 
 /** Prossima scadenza di un documento ricorrente (sempre nel futuro). */
@@ -207,4 +282,4 @@ const fmtEuro = n => new Intl.NumberFormat('it-IT', { style: 'currency', currenc
 const fmtDate = s => new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' }).format(parseIso(s));
 const fmtBytes = b => b < 1024 ? b + ' B' : b < 1048576 ? (b / 1024).toFixed(0) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
 
-if (typeof module !== 'undefined') module.exports = { CATS, norm, iso, parseIso, daysLeft, classify, extractDue, extractDocDate, extractAmount, parseAmount, analyze, nextDue, icsTrigger, rank, withinOne, dayText, urgency, bucket, greeting, fmtEuro, fmtBytes };
+if (typeof module !== 'undefined') module.exports = { smartTitle, titleCandidates, docType, CATS, norm, iso, parseIso, daysLeft, classify, extractDue, extractDocDate, extractAmount, parseAmount, analyze, nextDue, icsTrigger, rank, withinOne, dayText, urgency, bucket, greeting, fmtEuro, fmtBytes };

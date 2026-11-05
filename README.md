@@ -133,3 +133,10 @@ Da fare prima di pubblicare:
 La logica di analisi (date, categorie, ricerca) è identica in Kotlin e JavaScript; la versione JS è stata verificata con test automatici e in browser. Il codice **Kotlin/Android non è stato compilato in questo ambiente** (manca l'Android SDK): alla prima apertura in Android Studio potrebbero servire piccoli ritocchi (versioni di librerie, import). Il workflow `android.yml` esegue test e build ad ogni push per scoprirli subito.
 
 Con affetto, per chi odia la carta sul tavolo. — *DodiFile*
+
+## Pubblicazione su Google Play (aggiornamento 2.1)
+- `pwa/privacy.html` → informativa privacy (URL da inserire in Play Console: `https://doditech83.github.io/DodiFile/privacy.html`).
+- `store/scheda-store.md` → titoli, descrizioni, note di rilascio, risposte Data safety e classificazione contenuti.
+- `store/` → icona 512, immagine in evidenza 1024×500, screenshot del telefono.
+- `store/assetlinks.template.json` → copia il contenuto in `pwa/.well-known/assetlinks.json` inserendo l'impronta SHA-256 della chiave di firma (Play Console → Integrità dell'app). Il workflow `pages.yml` ora pubblica anche la cartella `.well-known`.
+- Passi: PWABuilder (pwabuilder.com) con l'URL del sito → Android → package `it.doditech.dodifile` → scarica il pacchetto `.aab` e conserva la chiave di firma in un posto sicuro.
